@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulador Actuarial y Financiero Universal</title>
+    <title>Simulador Actuarial Universal</title>
     <style>
         body { font-family: 'Segoe UI', Arial, sans-serif; max-width: 750px; margin: 30px auto; padding: 20px; background: #f4f6f9; color: #333; }
         .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
@@ -11,8 +11,7 @@
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
         label { font-weight: 600; font-size: 14px; color: #555; display: block; margin-bottom: 5px; }
         input, select { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #ccd1d9; box-sizing: border-box; font-size: 16px; background: white; }
-        input:focus, select:focus { border-color: #0078d4; outline: none; box-shadow: 0 0 0 3px rgba(0,120,212,0.15); }
-        button { width: 100%; padding: 14px; background: #0078d4; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 16px; cursor: pointer; transition: background 0.2s; }
+        button { width: 100%; padding: 14px; background: #0078d4; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 16px; cursor: pointer; transition: background 0.2s; margin-top: 10px; }
         button:hover { background: #005a9e; }
         .alert-info { background: #e1f5fe; border-left: 4px solid #0288d1; padding: 15px; margin-top: 20px; border-radius: 4px; font-size: 14px; line-height: 1.5; }
         .table-container { margin-top: 25px; overflow-x: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border-radius: 8px; }
@@ -97,15 +96,15 @@
 
             const tasaMortalidadBase = obtenerTasaMortalidad(generoInput, edadInput);
             
-            // Simulación ajustada para que a los 37 años dé exactamente los 0.14€ de tu tabla real
+            // Simulación ajustada para tu caso exacto de 0.14€ a los 37 años
             const factorAjuste = 0.001; 
             const primaRiesgoCalculada = Math.max(0.01, capitalInput * tasaMortalidadBase * factorAjuste);
             
             let capitalActivo = capitalInput - primaRiesgoCalculada;
             const tasaDiaria = (interesInput / 100) / 365;
             
-            // Días de los 9 meses restantes para completar el año tras la carencia
-            const diasCalendario =;
+            // Días de los 9 meses de crecimiento activo para completar el año tras los 3 meses de carencia
+            const diasCalendario = [30, 31, 30, 31, 31, 30, 31, 30, 31];
             
             const divResumen = document.getElementById('resumen-actuarial');
             divResumen.innerHTML = `
@@ -119,7 +118,7 @@
             const tbody = document.getElementById('resultado');
             tbody.innerHTML = '';
             
-            // Periodo de carencia inicial de 3 meses
+            // Periodo de carencia inicial fijo de 3 meses
             for(let m = 1; m <= 3; m++) {
                 tbody.innerHTML += `
                     <tr>
@@ -129,7 +128,7 @@
                     </tr>`;
             }
             
-            // Crecimiento compuesto por días reales
+            // Crecimiento compuesto por los días reales de cada mes
             for(let i = 0; i < diasCalendario.length; i++) {
                 const diasDelMes = diasCalendario[i];
                 const factorCrecimiento = Math.pow(1 + tasaDiaria, diasDelMes);
