@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador Actuarial y Financiero Universal</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; max-width: 750px; margin: 30px auto; padding: 20px; background: #f4f6f9; color: #333; }
+        .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        h2 { color: #0078d4; margin-top: 0; font-size: 24px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        label { font-weight: 600; font-size: 14px; color: #555; display: block; margin-bottom: 5px; }
+        input, select { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #ccd1d9; box-sizing: border-box; font-size: 16px; background: white; }
+        input:focus, select:focus { border-color: #0078d4; outline: none; box-shadow: 0 0 0 3px rgba(0,120,212,0.15); }
+        button { width: 100%; padding: 14px; background: #0078d4; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 16px; cursor: pointer; transition: background 0.2s; }
+        button:hover { background: #005a9e; }
+        .alert-info { background: #e1f5fe; border-left: 4px solid #0288d1; padding: 15px; margin-top: 20px; border-radius: 4px; font-size: 14px; }
+        .table-container { margin-top: 25px; overflow-x: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border-radius: 8px; }
+        table { width: 100%; border-collapse: collapse; background: white; }
+        th, td { padding: 12px 15px; border-bottom: 1px solid #e6e9ed; text-align: center; font-size: 15px; }
+        th { background: #0078d4; color: white; font-weight: 600; }
+        tr:hover { background-color: #f8f9fa; }
+        .highlight { font-weight: bold; color: #2ca02c; }
+        .badge { background: #f5f5f5; color: #666; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>Simulador Actuarial Universal</h2>
+        <p style="color: #666; margin-bottom: 25px; font-size: 14px;">Calcula la rentabilidad compuesta por días exactos aplicando el descuento de la prima de riesgo por fallecimiento según la edad del inversor.</p>
+        
+        <div class="grid">
+            <div>
+                <label for="capital">Capital Inicial (€):</label>
+                <input type="number" id="capital" value="25000">
+            </div>
+            <div>
+                <label for="interes">Interés Técnico Anual (%):</label>
+                <input type="number" id="interes" value="4.0" step="0.01">
+            </div>
+        </div>
+
+        <div class="grid">
+            <div>
+                <label for="edad">Edad Actuarial del Inversor:</label>
+                <input type="number" id="edad" value="37" min="18" max="85">
+            </div>
+            <div>
+                <label for="genero">Género (Mortalidad Estadística):</label>
+                <select id="genero">
+                    <option value="H">Hombre</option>
+                    <option value="M">Mujer</option>
+                </select>
+            </div>
+        </div>
+        
+        <button onclick="calcularSimulacionActuarial()">Generar Proyección Individual</button>
+        
+        <div id="resumen-actuarial" class="alert-info" style="display:none;"></div>
+        
+        <div class="table-container" id="tabla-contenedor" style="display:none;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Periodo</th>
+                        <th>Días Reales</th>
+                        <th>Saldo Acumulado</th>
+                    </tr>
+                </thead>
+                <tbody id="resultado"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // Muestra reducida de Probabilidades de Fallecimiento anuales (qx) basadas en estadísticas españolas oficiales
+        // Índices corresponden a las edades desde los 18 hasta los 80 años.
+        const tablasMortalidad = {
+            'H': { 18:0.0003, 25:0.0004, 37:0.00056, 45:0.0012, 55:0.0034, 65:0.0094, 75:0.0265, 80:0.0461 },
+            'M': { 18:0.0001, 25:0.0002, 37:0.00028, 45:0.0007, 55:0.0019, 65:0.0048, 75:0.0142, 80:0.0258 }
+        };
+
+        function obtenerTasaMortalidad(genero, edad) {
+            const listaEdades = Object.keys(tablasMortalidad[genero]).map(Number);
+            // Busca el tramo de edad más cercano en la tabla simplificada
+            const edadCercana = listaEdades.reduce((prev, curr) => Math.abs(curr - edad) < Math.abs(prev - edad) ? curr : prev);
+            return tablasMortalidad[genero][edadCercana];
+        }
+
+        function calcularSimulacionActuarial() {
+            const capitalInput = parseFloat(document.getElementById('capital').value);
+            const interesInput = parseFloat(document.getElementById('interes').value);
+            const edadInput = parseInt(document.getElementById('edad').value);
+            const generoInput = document.getElementById('genero').value;
+            
+            if (isNaN(capitalInput) || isNaN(interesInput) || isNaN(edadInput) || capitalInput <= 0) {
+                alert("Por favor, rellena todos los campos con valores correctos.");
+                return;
+            }
+
+            // 1. Cálculo actuarial del coste del riesgo según edad y capital
+            const tasaFallecimientoAnual = obtenerTasaMortalidad(generoInput, edadInput);
+            
+            // La prima comercial de riesgo se calcula multiplicando el capital en peligro por la tasa estadística
+            // Añadimos un factor de recargo comercial del 0.01 para simular los costes de la póliza real
+            const primaRiesgoCalculada = Math.max(0.05, capitalInput * tasaFallecimientoAnual * 0.01);
+            
+            let capitalActivo = capitalInput - primaRiesgoCalculada;
+            const tasaDiaria = (interesInput / 100) / 365;
+            const diasCalendario =;
+            
+            // Mostrar resumen del cálculo actuarial inicial
+            const divResumen = document.getElementById('resumen-actuarial');
+            divResumen.innerHTML = `
+                <strong>Resumen del Perfil Actuarial:</strong><br>
+                • Edad del inversor: ${edadInput} años (${generoInput === 'H' ? 'Hombre' : 'Mujer'}).<br>
+                • Prima de riesgo deducida según edad: <strong>${primaRiesgoCalculada.toFixed(2)} €</strong>.<br>
+                • Capital neto inicial puesto a trabajar: <strong>${capitalActivo.toFixed(2)} €</strong>.
+            `;
+            divResumen.style.display = 'block';
+
+            // 2. Generar el crecimiento en la tabla
+            const tbody = document.getElementById('resultado');
+            tbody.innerHTML = '';
+            
+            // Periodo de carencia inicial de 3 meses
+            for(let m = 1; m <= 3; m++) {
+                tbody.innerHTML += `
+                    <tr>
+                        <td>Mes ${m}</td>
+                        <td><span class="badge">Carencia</span></td>
+                        <td>${capitalActivo.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</td>
+                    </tr>`;
+            }
+            
+            // Crecimiento compuesto por días reales
+            for(let i = 0; i < diasCalendario.length; i++) {
+                const diasDelMes = diasCalendario[i];
+                const factorCrecimiento = Math.pow(1 + tasaDiaria, diasDelMes);
+                capitalActivo = capitalActivo * factorCrecimiento;
+                
+                tbody.innerHTML += `
+                    <tr>
+                        <td>Mes ${i + 4}</td>
+                        <td>${diasDelMes} días</td>
+                        <td class="highlight">${capitalActivo.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</td>
+                    </tr>`;
+            }
+            
+            document.getElementById('tabla-contenedor').style.display = 'block';
+        }
+    </script>
+</body>
+</html>
