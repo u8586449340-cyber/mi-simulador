@@ -14,7 +14,7 @@
         input:focus, select:focus { border-color: #0078d4; outline: none; box-shadow: 0 0 0 3px rgba(0,120,212,0.15); }
         button { width: 100%; padding: 14px; background: #0078d4; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 16px; cursor: pointer; transition: background 0.2s; }
         button:hover { background: #005a9e; }
-        .alert-info { background: #e1f5fe; border-left: 4px solid #0288d1; padding: 15px; margin-top: 20px; border-radius: 4px; font-size: 14px; }
+        .alert-info { background: #e1f5fe; border-left: 4px solid #0288d1; padding: 15px; margin-top: 20px; border-radius: 4px; font-size: 14px; line-height: 1.5; }
         .table-container { margin-top: 25px; overflow-x: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border-radius: 8px; }
         table { width: 100%; border-collapse: collapse; background: white; }
         th, td { padding: 12px 15px; border-bottom: 1px solid #e6e9ed; text-align: center; font-size: 15px; }
@@ -73,8 +73,6 @@
     </div>
 
     <script>
-        // Muestra reducida de Probabilidades de Fallecimiento anuales (qx) basadas en estadísticas españolas oficiales
-        // Índices corresponden a las edades desde los 18 hasta los 80 años.
         const tablasMortalidad = {
             'H': { 18:0.0003, 25:0.0004, 37:0.00056, 45:0.0012, 55:0.0034, 65:0.0094, 75:0.0265, 80:0.0461 },
             'M': { 18:0.0001, 25:0.0002, 37:0.00028, 45:0.0007, 55:0.0019, 65:0.0048, 75:0.0142, 80:0.0258 }
@@ -82,7 +80,6 @@
 
         function obtenerTasaMortalidad(genero, edad) {
             const listaEdades = Object.keys(tablasMortalidad[genero]).map(Number);
-            // Busca el tramo de edad más cercano en la tabla simplificada
             const edadCercana = listaEdades.reduce((prev, curr) => Math.abs(curr - edad) < Math.abs(prev - edad) ? curr : prev);
             return tablasMortalidad[genero][edadCercana];
         }
@@ -98,28 +95,27 @@
                 return;
             }
 
-            // 1. Cálculo actuarial del coste del riesgo según edad y capital
-            const tasaFallecimientoAnual = obtenerTasaMortalidad(generoInput, edadInput);
+            const tasaMortalidadBase = obtenerTasaMortalidad(generoInput, edadInput);
             
-            // La prima comercial de riesgo se calcula multiplicando el capital en peligro por la tasa estadística
-            // Añadimos un factor de recargo comercial del 0.01 para simular los costes de la póliza real
-            const primaRiesgoCalculada = Math.max(0.05, capitalInput * tasaFallecimientoAnual * 0.01);
+            // Simulación ajustada para que a los 37 años dé exactamente los 0.14€ de tu tabla real
+            const factorAjuste = 0.001; 
+            const primaRiesgoCalculada = Math.max(0.01, capitalInput * tasaMortalidadBase * factorAjuste);
             
             let capitalActivo = capitalInput - primaRiesgoCalculada;
             const tasaDiaria = (interesInput / 100) / 365;
+            
+            // Días de los 9 meses restantes para completar el año tras la carencia
             const diasCalendario =;
             
-            // Mostrar resumen del cálculo actuarial inicial
             const divResumen = document.getElementById('resumen-actuarial');
             divResumen.innerHTML = `
                 <strong>Resumen del Perfil Actuarial:</strong><br>
                 • Edad del inversor: ${edadInput} años (${generoInput === 'H' ? 'Hombre' : 'Mujer'}).<br>
                 • Prima de riesgo deducida según edad: <strong>${primaRiesgoCalculada.toFixed(2)} €</strong>.<br>
-                • Capital neto inicial puesto a trabajar: <strong>${capitalActivo.toFixed(2)} €</strong>.
+                • Capital neto puesto a trabajar: <strong>${capitalActivo.toFixed(2)} €</strong>.
             `;
             divResumen.style.display = 'block';
 
-            // 2. Generar el crecimiento en la tabla
             const tbody = document.getElementById('resultado');
             tbody.innerHTML = '';
             
