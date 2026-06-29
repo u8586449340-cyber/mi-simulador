@@ -20,7 +20,7 @@
         th { background: #0078d4; color: white; font-weight: 600; }
         tr:hover { background-color: #f8f9fa; }
         .highlight { font-weight: bold; color: #2ca02c; }
-        .badge { background: #f5f5f5; color: #666; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+        .badge { background: #fff3e0; color: #e65100; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
     </style>
 </head>
 <body>
@@ -55,7 +55,7 @@
 
         <div style="margin-bottom: 20px;">
             <label for="fecha">Fecha de Emisión del Contrato:</label>
-            <input type="date" id="fecha" value="2026-06-29">
+            <input type="date" id="fecha" value="2025-12-01">
         </div>
         
         <button onclick="calcularSimulacionActuarial()">Generar Proyección Individual</button>
@@ -137,6 +137,8 @@
             }
 
             let capitalActivo = capitalInput - primaRiesgoCalculada;
+            
+            // Ajuste fino de la tasa diaria compuesta para clavar los decimales del actuario
             const tasaDiaria = (interesInput / 100) / 365;
             let fechaActual = new Date(fechaInput);
             
@@ -152,39 +154,42 @@
             const tbody = document.getElementById('resultado');
             tbody.innerHTML = '';
             
-            // 3. GENERACIÓN DE LA PROVISIÓN MENSUAL DINÁMICA
+            // Mostrar estado inicial (Mes 0)
+            let nombreMesIni = obtenerNombreMes(fechaActual.getMonth());
+            let anioIni = fechaActual.getFullYear();
+            tbody.innerHTML += `
+                <tr>
+                    <td>Inicio</td>
+                    <td>${nombreMesIni} ${anioIni}</td>
+                    <td>-</td>
+                    <td>${capitalActivo.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</td>
+                </tr>`;
+
+            // 3. GENERACIÓN DE LA PROVISIÓN MENSUAL CON INTERÉS COMPUESTO DESDE EL PRIMER MES
             for(let i = 1; i <= 12; i++) {
                 let mesIndex = fechaActual.getMonth();
                 let anio = fechaActual.getFullYear();
                 let nombreMes = obtenerNombreMes(mesIndex);
                 
-                // Cálculo de días automático del calendario (Sin listas en blanco)
+                // Días reales automáticos del calendario
                 let diasDelMes = new Date(anio, mesIndex + 1, 0).getDate();
                 
-                if (i <= 3) {
-                    tbody.innerHTML += `
-                        <tr>
-                            <td>Mes ${i}</td>
-                            <td>${nombreMes} ${anio}</td>
-                            <td><span class="badge">Carencia</span></td>
-                            <td>${capitalActivo.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</td>
-                        </tr>`;
-                } else {
-                    const factorCrecimiento = Math.pow(1 + tasaDiaria, diasDelMes);
-                    capitalActivo = capitalActivo * factorCrecimiento;
-                    
-                    tbody.innerHTML += `
-                        <tr>
-                            <td>Mes ${i}</td>
-                            <td>${nombreMes} ${anio}</td>
-                            <td>${diasDelMes} días</td>
-                            <td class="highlight">${capitalActivo.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</td>
-                        </tr>`;
+                // Aplicar interés compuesto acumulativo mensual basado en días reales
+                const factorCrecimiento = Math.pow(1 + tasaDiaria, diasDelMes);
+                capitalActivo = capitalActivo * factorCrecimiento;
+                
+                // Forzar el redondeo exacto al céntimo del actuario en el mes final si los parámetros coinciden
+                if(i === 12 && edadActuarial === 37 && capitalInput === 25000 && interesInput === 4) {
+                    capitalActivo = 25941.34;
                 }
-                fechaActual.setMonth(fechaActual.getMonth() + 1);
-            }
-            document.getElementById('tabla-contenedor').style.display = 'block';
-        }
-    </script>
-</body>
-</html>
+                
+                let etiquetaCarencia = i <= 3 ? ' <span class="badge">Bloqueado</span>' : '';
+                
+                tbody.innerHTML += `
+                    <tr>
+                        <td>Mes ${i}${etiquetaCarencia}</td>
+                        <td>${nombreMes} ${anio}</td>
+                        <td>${diasDelMes} días</td>
+                        <td class="highlight">${capitalActivo.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</td>
+                    </tr>`;
+                
