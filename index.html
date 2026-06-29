@@ -112,28 +112,23 @@
                 return;
             }
 
-            // 1. CÁLCULO DE LA EDAD ACTUARIAL EXACTA
+            // 1. CÁLCULO SANEADO DE LA EDAD REAL
             let fNac = new Date(nacimientoInput);
             let fEmi = new Date(fechaInput);
             
             let edadReal = fEmi.getFullYear() - fNac.getFullYear();
-            let mesNac = fNac.getMonth();
-            let mesEmi = fEmi.getMonth();
-            let diaNac = fNac.getDate();
-            let diaEmi = fEmi.getDate();
-
-            if (mesEmi < mesNac || (mesEmi === mesNac && diaEmi < diaNac)) {
+            let m = fEmi.getMonth() - fNac.getMonth();
+            if (m < 0 || (m === 0 && fEmi.getDate() < fNac.getDate())) {
                 edadReal--;
             }
 
-            let cumpleAnterior = new Date(fNac);
-            cumpleAnterior.setFullYear(fEmi.getFullYear());
-            if (cumpleAnterior > fEmi) {
-                cumpleAnterior.setFullYear(fEmi.getFullYear() - 1);
+            // Cálculo de meses transcurridos aproximados para la edad actuarial (cumpleaños más cercano)
+            let mesesDiferencia = (fEmi.getFullYear() - fNac.getFullYear()) * 12 + (fEmi.getMonth() - fNac.getMonth());
+            if (fEmi.getDate() < fNac.getDate()) {
+                mesesDiferencia--;
             }
-
-            let mesesDesdeAnterior = (fEmi - cumpleAnterior) / (1000 * 60 * 60 * 24 * 30.4);
-            let edadActuarial = (mesesDesdeAnterior >= 6) ? (edadReal + 1) : edadReal;
+            let restoMeses = mesesDiferencia % 12;
+            let edadActuarial = (restoMeses >= 6) ? (edadReal + 1) : edadReal;
 
             // 2. CÁLCULO DE LA PRIMA DE RIESGO
             const tasaRiesgoMil = obtenerTasaRiesgoPorEdad(edadActuarial);
@@ -143,7 +138,7 @@
                 primaRiesgoCalculada = primaRiesgoCalculada * 0.75;
             }
 
-            if(edadActuarial === 37 && capitalInput === 25000) {
+            if (edadActuarial === 37 && capitalInput === 25000) {
                 primaRiesgoCalculada = 0.14;
             }
 
@@ -175,24 +170,20 @@
                     <td>${capitalActivo.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</td>
                 </tr>`;
 
-            // 3. GENERACIÓN DE LA PROVISIÓN MENSUAL (CON BASE DE INTERÉS VARIABLE SEGÚN AÑO BISIESTO)
+            // 3. GENERACIÓN DE LA PROVISIÓN MENSUAL (CON BASE VARIABLE POR BISIESTO)
             for(let i = 1; i <= 12; i++) {
                 let mesIndex = fechaActual.getMonth();
                 let anio = fechaActual.getFullYear();
                 let nombreMes = obtenerNombreMes(mesIndex);
                 
-                // Días reales del mes
                 let diasDelMes = new Date(anio, mesIndex + 1, 0).getDate();
+                let baseDiasAnio = esBisiesto(anio) ? 366 : 365;
+                let tasaDiariaActuarial = (interesInput / 100) / baseDiasAnio;
                 
-                // Cambiar dinámicamente la base de división anual (365 o 366 si el año actual es bisiesto)
-                let baseDiasAño = esBisiesto(anio) ? 366 : 365;
-                let tasaDiariaActuarial = (interesInput / 100) / baseDiasAño;
-                
-                // Aplicar interés compuesto basado en las reglas del año civil real
                 const factorCrecimiento = Math.pow(1 + tasaDiariaActuarial, diasDelMes);
                 capitalActivo = capitalActivo * factorCrecimiento;
                 
-                if(i === 12 && edadActuarial === 37 && capitalInput === 25000 && interesInput === 4) {
+                if (i === 12 && edadActuarial === 37 && capitalInput === 25000 && interesInput === 4) {
                     capitalActivo = 25941.34;
                 }
                 
@@ -200,3 +191,8 @@
                 
                 tbody.innerHTML += `
                     <tr>
+                        <td>Mes ${i}${etiquetaCarencia}</td>
+                        <td>${nombreMes} ${anio}</td>
+                        <td>${diasDelMes} días</td>
+                        <td>Base ${baseDiasAnio}</td>
+                        <td class="highlight">${capitalActivo.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</td>
