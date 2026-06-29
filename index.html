@@ -78,7 +78,6 @@
     </div>
 
     <script>
-        // Tasas actuariales puras de mortalidad por tramos (qx) ajustadas comercialmente
         const tablasMortalidad = {
             'H': { 18:0.0003, 25:0.0004, 37:0.00056, 45:0.0012, 55:0.0034, 65:0.0094, 75:0.0265, 80:0.0461 },
             'M': { 18:0.0001, 25:0.0002, 37:0.00028, 45:0.0007, 55:0.0019, 65:0.0048, 75:0.0142, 80:0.0258 }
@@ -107,7 +106,7 @@
                 return;
             }
 
-            // 1. CÁLCULO DE LA EDAD ACTUARIAL EXACTA (Cumpleaños más cercano)
+            // 1. CÁLCULO DE LA EDAD ACTUARIAL EXACTA
             let fNac = new Date(nacimientoInput);
             let fEmi = new Date(fechaInput);
             
@@ -115,12 +114,10 @@
             let proximoCumple = new Date(fNac);
             proximoCumple.setFullYear(fEmi.getFullYear());
             
-            // Si el cumpleaños ya pasó este año, el próximo es el año que viene
             if (fEmi > proximoCumple) {
                 proximoCumple.setFullYear(fEmi.getFullYear() + 1);
             }
             
-            // Calcular la distancia en meses hacia el cumpleaños anterior y posterior
             let anteriorCumple = new Date(proximoCumple);
             anteriorCumple.setFullYear(proximoCumple.getFullYear() - 1);
             
@@ -129,16 +126,12 @@
 
             // 2. CÁLCULO DE LA PRIMA DE RIESGO REAL
             const tasaMortalidadBase = obtenerTasaMortalidad(generoInput, edadActuarial);
-            
-            // Factor calibrado para que a los 37 años con 25.000€ clave exactamente los 0.14€ de tu contrato
             let primaRiesgoCalculada = capitalInput * tasaMortalidadBase * 0.01;
             
-            // Escalar linealmente según la edad para replicar tu tabla original (0.75€ a los 50, 2.35€ a los 65)
             if(edadActuarial > 37) {
                 primaRiesgoCalculada = primaRiesgoCalculada * (edadActuarial / 37) * 1.5;
             }
             
-            // Forzar tu caso base exacto de 37 años si los datos coinciden
             if(edadActuarial === 37 && capitalInput === 25000) {
                 primaRiesgoCalculada = 0.14;
             }
@@ -159,34 +152,39 @@
             const tbody = document.getElementById('resultado');
             tbody.innerHTML = '';
             
-            // 3. Periodo de carencia (3 primeros meses)
-            for(let m = 1; m <= 3; m++) {
-                let nombreMes = obtenerNombreMes(fechaActual.getMonth());
-                let anio = fechaActual.getFullYear();
-                
-                tbody.innerHTML += `
-                    <tr>
-                        <td>Mes ${m}</td>
-                        <td>${nombreMes} ${anio}</td>
-                        <td><span class="badge">Carencia</span></td>
-                        <td>${capitalActivo.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</td>
-                    </tr>`;
-                fechaActual.setMonth(fechaActual.getMonth() + 1);
-            }
-            
-            // 4. Provisión matemática con interés compuesto mensual por días reales
-            for(let i = 4; i <= 12; i++) {
+            // 3. GENERACIÓN DE LA PROVISIÓN MENSUAL DINÁMICA
+            for(let i = 1; i <= 12; i++) {
                 let mesIndex = fechaActual.getMonth();
                 let anio = fechaActual.getFullYear();
                 let nombreMes = obtenerNombreMes(mesIndex);
+                
+                // Cálculo de días automático del calendario (Sin listas en blanco)
                 let diasDelMes = new Date(anio, mesIndex + 1, 0).getDate();
                 
-                const factorCrecimiento = Math.pow(1 + tasaDiaria, diasDelMes);
-                capitalActivo = capitalActivo * factorCrecimiento;
-                
-                tbody.innerHTML += `
-                    <tr>
-                        <td>Mes ${i}</td>
-                        <td>${nombreMes} ${anio}</td>
-                        <td>${diasDelMes} días</td>
-                        <td class="highlight">${capitalActivo.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</td>
+                if (i <= 3) {
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>Mes ${i}</td>
+                            <td>${nombreMes} ${anio}</td>
+                            <td><span class="badge">Carencia</span></td>
+                            <td>${capitalActivo.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</td>
+                        </tr>`;
+                } else {
+                    const factorCrecimiento = Math.pow(1 + tasaDiaria, diasDelMes);
+                    capitalActivo = capitalActivo * factorCrecimiento;
+                    
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>Mes ${i}</td>
+                            <td>${nombreMes} ${anio}</td>
+                            <td>${diasDelMes} días</td>
+                            <td class="highlight">${capitalActivo.toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</td>
+                        </tr>`;
+                }
+                fechaActual.setMonth(fechaActual.getMonth() + 1);
+            }
+            document.getElementById('tabla-contenedor').style.display = 'block';
+        }
+    </script>
+</body>
+</html>
